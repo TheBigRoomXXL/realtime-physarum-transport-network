@@ -92,7 +92,7 @@ func main() {
 	rl.SetConfigFlags(rl.FlagMsaa4xHint)
 	rl.SetConfigFlags(rl.FlagWindowResizable)
 
-	rl.InitWindow(int32(SCREEN_WIDTH), int32(SCREEN_HEIGHT), "Boids")
+	rl.InitWindow(int32(SCREEN_WIDTH), int32(SCREEN_HEIGHT), "Physarium Transport Network")
 	defer rl.CloseWindow()
 
 	rl.SetTargetFPS(30)
