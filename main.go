@@ -67,8 +67,8 @@ func (g *Grid) Add(pos rl.Vector2, a float32) {
 }
 
 func (g *Grid) Draw() {
-	dataSlice := (*[1 << 24]rl.Color)(g.Image.Data)[:g.Image.Width*g.Image.Height]
-	rl.UpdateTexture(g.Texture, dataSlice)
+	colors := rl.LoadImageColors(g.Image)
+	rl.UpdateTexture(g.Texture, colors)
 	rl.DrawTexture(g.Texture, 0, 0, color.RGBA{255, 255, 255, 255})
 }
 
