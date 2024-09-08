@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	_ "image/png"
@@ -9,12 +10,12 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
-const N = 20
-const SCREEN_WIDTH = 1024
-const SCREEN_HEIGHT = 768
-const PARTICULE_SIZE = 5
-const PARTICULE_SPEED = PARTICULE_SIZE * 50
-const SENSOR_DISTANCE = PARTICULE_SPEED * 9
+const N = 10000
+const SCREEN_WIDTH = 600
+const SCREEN_HEIGHT = 600
+const PARTICULE_SIZE = 1
+const PARTICULE_SPEED = 4
+const SENSOR_DISTANCE = PARTICULE_SPEED
 const SENSOR_ANGLE = 45
 const DIFFUSION_SIZE = 2
 const TRAIL_STRENGTH = 255
@@ -29,15 +30,36 @@ func (p *Particule) Draw() {
 }
 
 func (p *Particule) Move(grid *Grid) {
-	// sampleCenter := rl.Vector2{
-	// 	X: p.Pos.X + p.Vel.X,
-	// 	Y: p.Pos.Y + p.Vel.Y,
-	// }
-	// velLeft := rl.Vector2Rotate(p.Vel, SENSOR_ANGLE)
-	// sampleLeft := rl.Vector2{
-	// 	X: p.Pos.X + p.Vel.X,
-	// 	Y: p.Pos.Y + p.Vel.Y,
-	// }
+	if p.Pos.X+p.Vel.X < 10 ||
+		p.Pos.X+p.Vel.X > SCREEN_WIDTH-10 ||
+		p.Pos.Y+p.Vel.Y < 10 ||
+		p.Pos.Y+p.Vel.Y > SCREEN_HEIGHT-10 {
+		p.Vel = rl.Vector2Rotate(p.Vel, 90)
+	}
+	sampleCenter := rl.GetImageColor(
+		*grid.Image,
+		int32(p.Pos.X+p.Vel.X),
+		int32(p.Pos.Y+p.Vel.Y),
+	).A
+	velLeft := rl.Vector2Rotate(p.Vel, -SENSOR_ANGLE)
+	sampleLeft := rl.GetImageColor(
+		*grid.Image,
+		int32(p.Pos.X+velLeft.X),
+		int32(p.Pos.Y+velLeft.Y),
+	).A
+	velRight := rl.Vector2Rotate(p.Vel, SENSOR_ANGLE)
+	sampleRight := rl.GetImageColor(
+		*grid.Image,
+		int32(p.Pos.X+velRight.X),
+		int32(p.Pos.Y+velRight.Y),
+	).A
+	if sampleLeft > sampleCenter && sampleLeft > sampleRight {
+		p.Vel.X = velLeft.X
+		p.Vel.Y = velLeft.Y
+	} else if sampleRight > sampleCenter && sampleRight > sampleLeft {
+		p.Vel.X = velRight.X
+		p.Vel.Y = velRight.Y
+	}
 	p.Pos.X += p.Vel.X
 	p.Pos.Y += p.Vel.Y
 	grid.Add(p.Pos, 0.5)
@@ -75,25 +97,31 @@ func (g *Grid) Add(pos rl.Vector2, a float32) {
 }
 
 func (g *Grid) Draw() {
+	t := Timing{name: "Draw"}
+	t.Step("ImageBlurGaussian")
 	rl.ImageBlurGaussian(g.Image, 1)
-	rl.ImageColorTint(g.Image, color.RGBA{255, 255, 255, 254})
+	t.Step("ImageColorTint")
+	rl.ImageColorTint(g.Image, color.RGBA{255, 255, 255, 250})
+	t.Step("LoadImageColors")
 	colors := rl.LoadImageColors(g.Image)
+	t.Step("UpdateTexture")
 	rl.UpdateTexture(g.Texture, colors)
+	t.Step("DrawTexture")
 	rl.DrawTexture(g.Texture, 0, 0, color.RGBA{255, 255, 255, 255})
+	t.Step("end")
+	// t.Print()
 }
 
 func NewParticule() *Particule {
-	x := rand.Float32()
-	y := rand.Float32()
+	dist := rand.Float32() * float32(SCREEN_WIDTH) * 0.25
+	angle := rand.Float32() * 360
+	pos := rl.Vector2Rotate(rl.Vector2{X: dist, Y: 0}, angle)
 	return &Particule{
 		Pos: rl.Vector2{
-			X: x*float32(SCREEN_WIDTH)*0.20 + 0.40*float32(SCREEN_WIDTH),
-			Y: y*float32(SCREEN_HEIGHT)*0.20 + 0.40*float32(SCREEN_HEIGHT),
+			X: pos.X + float32(SCREEN_WIDTH)*0.5,
+			Y: pos.Y + float32(SCREEN_HEIGHT)*0.5,
 		},
-		Vel: rl.Vector2{
-			X: rand.Float32() - 0.5,
-			Y: rand.Float32() - 0.5,
-		},
+		Vel: rl.Vector2Rotate(rl.Vector2{X: -PARTICULE_SPEED, Y: 0}, angle),
 	}
 }
 
@@ -118,6 +146,7 @@ func main() {
 
 	// Rendering loop
 	for !rl.WindowShouldClose() {
+
 		for i := 0; i < len(particules); i++ {
 			particules[i].Move(grid)
 		}
@@ -126,7 +155,7 @@ func main() {
 		rl.ClearBackground(color.RGBA{22, 23, 31, 255})
 		grid.Draw()
 
-		// rl.DrawText(fmt.Sprint("FPS: ", rl.GetFPS()), 20, 20, 20, rl.LightGray)
+		rl.DrawText(fmt.Sprint("FPS: ", rl.GetFPS()), 20, 20, 20, rl.LightGray)
 		rl.EndDrawing()
 	}
 }
