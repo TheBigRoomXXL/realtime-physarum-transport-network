@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 	_ "image/png"
@@ -10,9 +9,9 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
-const N = 10000
-const SCREEN_WIDTH = 600
-const SCREEN_HEIGHT = 600
+const N = 10_000
+const SCREEN_WIDTH = 1024
+const SCREEN_HEIGHT = 1024
 const PARTICULE_SIZE = 1
 const PARTICULE_SPEED = 4
 const SENSOR_DISTANCE = PARTICULE_SPEED
@@ -25,31 +24,30 @@ type Particule struct {
 	Vel rl.Vector2
 }
 
-func (p *Particule) Draw() {
-	rl.DrawCircleV(p.Pos, PARTICULE_SIZE, rl.Blue)
-}
-
-func (p *Particule) Move(grid *Grid) {
+func (p *Particule) Move(image *rl.Image) {
+	// Avoid edges
 	if p.Pos.X+p.Vel.X < 10 ||
 		p.Pos.X+p.Vel.X > SCREEN_WIDTH-10 ||
 		p.Pos.Y+p.Vel.Y < 10 ||
 		p.Pos.Y+p.Vel.Y > SCREEN_HEIGHT-10 {
 		p.Vel = rl.Vector2Rotate(p.Vel, 90)
 	}
+
+	// Determine next direction
 	sampleCenter := rl.GetImageColor(
-		*grid.Image,
+		*image,
 		int32(p.Pos.X+p.Vel.X),
 		int32(p.Pos.Y+p.Vel.Y),
 	).A
 	velLeft := rl.Vector2Rotate(p.Vel, -SENSOR_ANGLE)
 	sampleLeft := rl.GetImageColor(
-		*grid.Image,
+		*image,
 		int32(p.Pos.X+velLeft.X),
 		int32(p.Pos.Y+velLeft.Y),
 	).A
 	velRight := rl.Vector2Rotate(p.Vel, SENSOR_ANGLE)
 	sampleRight := rl.GetImageColor(
-		*grid.Image,
+		*image,
 		int32(p.Pos.X+velRight.X),
 		int32(p.Pos.Y+velRight.Y),
 	).A
@@ -60,56 +58,10 @@ func (p *Particule) Move(grid *Grid) {
 		p.Vel.X = velRight.X
 		p.Vel.Y = velRight.Y
 	}
+
+	// Updated position
 	p.Pos.X += p.Vel.X
 	p.Pos.Y += p.Vel.Y
-	grid.Add(p.Pos, 0.5)
-}
-
-// Adapted form https://github.com/fogleman/physarum/blob/main/pkg/physarum/grid.go
-type Grid struct {
-	W, H    int
-	Image   *rl.Image
-	Texture rl.Texture2D
-}
-
-func NewGrid(w, h int) *Grid {
-	imgImg := image.NewGray(
-		image.Rectangle{
-			image.Point{0, 0},
-			image.Point{SCREEN_WIDTH, SCREEN_HEIGHT},
-		},
-	)
-	for i := 0; i < 100; i++ {
-		for j := 0; j < 100; j++ {
-			imgImg.SetGray(i, j, color.Gray{0})
-
-		}
-	}
-	img := rl.NewImageFromImage(imgImg)
-	texture := rl.LoadTextureFromImage(img)
-	return &Grid{w, h, img, texture}
-}
-
-func (g *Grid) Add(pos rl.Vector2, a float32) {
-	rl.ImageDrawCircleV(
-		g.Image, pos, PARTICULE_SIZE, color.RGBA{255, 255, 255, TRAIL_STRENGTH},
-	)
-}
-
-func (g *Grid) Draw() {
-	t := Timing{name: "Draw"}
-	t.Step("ImageBlurGaussian")
-	rl.ImageBlurGaussian(g.Image, 1)
-	t.Step("ImageColorTint")
-	rl.ImageColorTint(g.Image, color.RGBA{255, 255, 255, 250})
-	t.Step("LoadImageColors")
-	colors := rl.LoadImageColors(g.Image)
-	t.Step("UpdateTexture")
-	rl.UpdateTexture(g.Texture, colors)
-	t.Step("DrawTexture")
-	rl.DrawTexture(g.Texture, 0, 0, color.RGBA{255, 255, 255, 255})
-	t.Step("end")
-	// t.Print()
 }
 
 func NewParticule() *Particule {
@@ -135,27 +87,72 @@ func main() {
 
 	rl.SetTargetFPS(30)
 
+	//  Init texture in CPU and GPU
+	imgImg := image.NewGray(
+		image.Rectangle{
+			image.Point{0, 0},
+			image.Point{SCREEN_WIDTH, SCREEN_HEIGHT},
+		},
+	)
+	for i := 0; i < 100; i++ {
+		for j := 0; j < 100; j++ {
+			imgImg.SetGray(i, j, color.Gray{0})
+
+		}
+	}
+	image := rl.NewImageFromImage(imgImg)
+	target := rl.LoadRenderTexture(SCREEN_WIDTH, SCREEN_HEIGHT)
+
 	// Init Particles
 	var particules [N]Particule
 	for i := 0; i < N; i++ {
 		particules[i] = *NewParticule()
 	}
 
-	// Init Grid
-	grid := NewGrid(SCREEN_WIDTH, SCREEN_HEIGHT)
+	// Load shader
+	shader := rl.LoadShader("", "diffuse.fs")
+	if !rl.IsShaderReady(shader) {
+		panic(shader)
+	}
+	rectange := rl.NewRectangle(
+		0,
+		0,
+		float32(SCREEN_WIDTH),
+		float32(SCREEN_HEIGHT),
+	)
 
 	// Rendering loop
+	// i := 0
 	for !rl.WindowShouldClose() {
+		// Debug
+		// i++
+		// if i%30 == 0 {
+		// 	rl.ExportImage(*image, fmt.Sprintf("frames/%d.png", i/30))
+		// }
 
+		// Update the image data with the particule simulation
 		for i := 0; i < len(particules); i++ {
-			particules[i].Move(grid)
+			particules[i].Move(image)
 		}
 
 		rl.BeginDrawing()
-		rl.ClearBackground(color.RGBA{22, 23, 31, 255})
-		grid.Draw()
+		rl.ClearBackground(rl.Black)
 
-		rl.DrawText(fmt.Sprint("FPS: ", rl.GetFPS()), 20, 20, 20, rl.LightGray)
+		rl.BeginTextureMode(target)
+		rl.DrawRectangleRec(rectange, color.RGBA{0, 0, 0, 10})
+		for _, p := range particules {
+			rl.DrawCircleV(p.Pos, 2, rl.White)
+		}
+		rl.EndTextureMode()
+
+		rl.BeginShaderMode(shader)
+		rl.DrawTextureRec(target.Texture, rectange, rl.Vector2Zero(), rl.White)
+		rl.EndShaderMode()
+
+		rl.DrawFPS(10, 10)
 		rl.EndDrawing()
+
+		// Get texture data after shader processing
+		image = rl.LoadImageFromTexture(target.Texture)
 	}
 }
