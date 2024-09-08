@@ -1,7 +1,7 @@
 package main
 
 import (
-	"image"
+	"fmt"
 	"image/color"
 	_ "image/png"
 	"math/rand"
@@ -9,13 +9,14 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
-const N = 50_000
+const N = 5000
 const SCREEN_WIDTH = 1024
 const SCREEN_HEIGHT = 1024
-const PARTICULE_SIZE = 1
-const PARTICULE_SPEED = 1
+const PARTICULE_SIZE = 2
+const PARTICULE_SPEED = 2
 const SENSOR_DISTANCE = PARTICULE_SPEED
 const SENSOR_ANGLE = 20
+const FADING_FACTOR = 2
 
 type Particule struct {
 	Pos rl.Vector2
@@ -24,11 +25,11 @@ type Particule struct {
 
 func (p *Particule) Move(image *rl.Image) {
 	// Avoid edges
-	if p.Pos.X+p.Vel.X < 10 ||
-		p.Pos.X+p.Vel.X > SCREEN_WIDTH-10 ||
-		p.Pos.Y+p.Vel.Y < 10 ||
-		p.Pos.Y+p.Vel.Y > SCREEN_HEIGHT-10 {
-		p.Vel = rl.Vector2Rotate(p.Vel, 90)
+	if p.Pos.X+p.Vel.X < 40 ||
+		p.Pos.X+p.Vel.X > SCREEN_WIDTH-40 ||
+		p.Pos.Y+p.Vel.Y < 40 ||
+		p.Pos.Y+p.Vel.Y > SCREEN_HEIGHT-40 {
+		p.Vel = rl.Vector2Rotate(p.Vel, 120)
 	}
 
 	// Determine next direction
@@ -83,22 +84,9 @@ func main() {
 	rl.InitWindow(int32(SCREEN_WIDTH), int32(SCREEN_HEIGHT), "Physarium Transport Network")
 	defer rl.CloseWindow()
 
-	rl.SetTargetFPS(60)
+	rl.SetTargetFPS(30)
 
-	//  Init texture in CPU and GPU
-	imgImg := image.NewGray(
-		image.Rectangle{
-			image.Point{0, 0},
-			image.Point{SCREEN_WIDTH, SCREEN_HEIGHT},
-		},
-	)
-	for i := 0; i < 100; i++ {
-		for j := 0; j < 100; j++ {
-			imgImg.SetGray(i, j, color.Gray{0})
-
-		}
-	}
-	image := rl.NewImageFromImage(imgImg)
+	// Init texture
 	target := rl.LoadRenderTexture(SCREEN_WIDTH, SCREEN_HEIGHT)
 
 	// Init Particles
@@ -109,9 +97,7 @@ func main() {
 
 	// Load shader
 	shader := rl.LoadShader("", "diffuse.fs")
-	if !rl.IsShaderReady(shader) {
-		panic(shader)
-	}
+	fmt.Println(shader)
 	rectange := rl.NewRectangle(
 		0,
 		0,
@@ -121,30 +107,43 @@ func main() {
 
 	// Rendering loop
 	for !rl.WindowShouldClose() {
+		// Get latest texture data from the GPU
+		image := rl.LoadImageFromTexture(target.Texture)
 
-		// Update the image data with the particule simulation
+		// Simulate the movement of every particule
 		for i := 0; i < len(particules); i++ {
 			particules[i].Move(image)
 		}
 
 		rl.BeginDrawing()
-		rl.ClearBackground(rl.Black)
 
 		rl.BeginTextureMode(target)
-		rl.DrawRectangleRec(rectange, color.RGBA{0, 0, 0, 10})
+
+		// Fade the existing trails
+		rl.DrawRectangleRec(rectange, color.RGBA{0, 0, 0, FADING_FACTOR})
+
+		// Add trail for the latest move
 		for _, p := range particules {
 			rl.DrawPixelV(p.Pos, rl.White)
 		}
+
+		// Diffuse the trails with a gaussian blur
+		rl.BeginShaderMode(shader)
+		rl.DrawTexture(target.Texture, 0, 0, rl.White)
+		rl.EndShaderMode()
+
 		rl.EndTextureMode()
 
-		rl.BeginShaderMode(shader)
-		rl.DrawTextureRec(target.Texture, rectange, rl.Vector2Zero(), rl.White)
-		rl.EndShaderMode()
+		// image = rl.LoadImageFromTexture(target.Texture)
+		// rl.ImageBlurGaussian(image, 10)
+		// colors := rl.LoadImageColors(image)
+		// rl.UpdateTexture(target.Texture, colors)
+
+		rl.ClearBackground(rl.Black)
+		rl.DrawTexture(target.Texture, 0, 0, rl.White)
 
 		rl.DrawFPS(10, 10)
 		rl.EndDrawing()
 
-		// Get texture data after shader processing
-		image = rl.LoadImageFromTexture(target.Texture)
 	}
 }

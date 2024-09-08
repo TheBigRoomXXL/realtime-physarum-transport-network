@@ -22,15 +22,15 @@ float weight[3] = float[](0.2270270270, 0.3162162162, 0.0702702703);
 
 void main()
 {
+    // Texel color fetching from texture sampler
     vec3 texelColor = texture(texture0, fragTexCoord).rgb*weight[0];
-    
-    for (int i = 1; i < 3; i++) 
-    {
-        texelColor += texture(texture0, fragTexCoord + vec2(offset[i])/renderWidth, 0.0).rgb*weight[i];
-        texelColor += texture(texture0, fragTexCoord - vec2(offset[i])/renderWidth, 0.0).rgb*weight[i];
-    }
 
-    finalColor = vec4(texelColor, 0.9);
+    texelColor += texture(texture0, fragTexCoord + vec2(offset[1])/renderWidth, 0.0).rgb*weight[1];
+    texelColor += texture(texture0, fragTexCoord - vec2(offset[1])/renderWidth, 0.0).rgb*weight[1];
+
+    texelColor += texture(texture0, fragTexCoord + vec2(offset[2])/renderWidth, 0.0).rgb*weight[2];
+    texelColor += texture(texture0, fragTexCoord - vec2(offset[2])/renderWidth, 0.0).rgb*weight[2];
+
+
+    finalColor = vec4(texelColor, 0.5);
 }
-
-
