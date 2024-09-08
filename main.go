@@ -9,15 +9,13 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
-const N = 10_000
+const N = 50_000
 const SCREEN_WIDTH = 1024
 const SCREEN_HEIGHT = 1024
 const PARTICULE_SIZE = 1
-const PARTICULE_SPEED = 4
+const PARTICULE_SPEED = 1
 const SENSOR_DISTANCE = PARTICULE_SPEED
-const SENSOR_ANGLE = 45
-const DIFFUSION_SIZE = 2
-const TRAIL_STRENGTH = 255
+const SENSOR_ANGLE = 20
 
 type Particule struct {
 	Pos rl.Vector2
@@ -73,7 +71,7 @@ func NewParticule() *Particule {
 			X: pos.X + float32(SCREEN_WIDTH)*0.5,
 			Y: pos.Y + float32(SCREEN_HEIGHT)*0.5,
 		},
-		Vel: rl.Vector2Rotate(rl.Vector2{X: -PARTICULE_SPEED, Y: 0}, angle),
+		Vel: rl.Vector2Rotate(rl.Vector2{X: PARTICULE_SPEED, Y: 0}, angle),
 	}
 }
 
@@ -85,7 +83,7 @@ func main() {
 	rl.InitWindow(int32(SCREEN_WIDTH), int32(SCREEN_HEIGHT), "Physarium Transport Network")
 	defer rl.CloseWindow()
 
-	rl.SetTargetFPS(30)
+	rl.SetTargetFPS(60)
 
 	//  Init texture in CPU and GPU
 	imgImg := image.NewGray(
@@ -122,13 +120,7 @@ func main() {
 	)
 
 	// Rendering loop
-	// i := 0
 	for !rl.WindowShouldClose() {
-		// Debug
-		// i++
-		// if i%30 == 0 {
-		// 	rl.ExportImage(*image, fmt.Sprintf("frames/%d.png", i/30))
-		// }
 
 		// Update the image data with the particule simulation
 		for i := 0; i < len(particules); i++ {
@@ -141,7 +133,7 @@ func main() {
 		rl.BeginTextureMode(target)
 		rl.DrawRectangleRec(rectange, color.RGBA{0, 0, 0, 10})
 		for _, p := range particules {
-			rl.DrawCircleV(p.Pos, 2, rl.White)
+			rl.DrawPixelV(p.Pos, rl.White)
 		}
 		rl.EndTextureMode()
 
