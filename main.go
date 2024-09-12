@@ -9,14 +9,14 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
-const N = 5000
+const N = 10000
 const SCREEN_WIDTH = 1024
 const SCREEN_HEIGHT = 1024
 const PARTICULE_SIZE = 2
 const PARTICULE_SPEED = 2
 const SENSOR_DISTANCE = PARTICULE_SPEED
 const SENSOR_ANGLE = 20
-const FADING_FACTOR = 2
+const FADING_FACTOR = 20
 
 type Particule struct {
 	Pos rl.Vector2
@@ -72,7 +72,7 @@ func NewParticule() *Particule {
 			X: pos.X + float32(SCREEN_WIDTH)*0.5,
 			Y: pos.Y + float32(SCREEN_HEIGHT)*0.5,
 		},
-		Vel: rl.Vector2Rotate(rl.Vector2{X: PARTICULE_SPEED, Y: 0}, angle),
+		Vel: rl.Vector2Rotate(rl.Vector2{X: -PARTICULE_SPEED, Y: 0}, angle),
 	}
 }
 
@@ -102,13 +102,18 @@ func main() {
 		0,
 		0,
 		float32(SCREEN_WIDTH),
-		float32(SCREEN_HEIGHT),
+		float32(-SCREEN_HEIGHT),
 	)
 
 	// Rendering loop
+	i := 0
 	for !rl.WindowShouldClose() {
+		i++
 		// Get latest texture data from the GPU
 		image := rl.LoadImageFromTexture(target.Texture)
+		if i%60 == 0 {
+			rl.ExportImage(*image, fmt.Sprintf("frames/%d.png", i/60))
+		}
 
 		// Simulate the movement of every particule
 		for i := 0; i < len(particules); i++ {
@@ -129,15 +134,15 @@ func main() {
 
 		// Diffuse the trails with a gaussian blur
 		rl.BeginShaderMode(shader)
-		rl.DrawTexture(target.Texture, 0, 0, rl.White)
+		rl.DrawTextureRec(
+			target.Texture,
+			rectange,
+			rl.Vector2Zero(),
+			rl.White,
+		)
 		rl.EndShaderMode()
 
 		rl.EndTextureMode()
-
-		// image = rl.LoadImageFromTexture(target.Texture)
-		// rl.ImageBlurGaussian(image, 10)
-		// colors := rl.LoadImageColors(image)
-		// rl.UpdateTexture(target.Texture, colors)
 
 		rl.ClearBackground(rl.Black)
 		rl.DrawTexture(target.Texture, 0, 0, rl.White)
